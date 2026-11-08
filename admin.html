@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg1:#dff0ff;--bg2:#fff;--fg:#1f3a5f;--card:#fff;--ac:#5aa9e6;--ac2:#8ec9f5;--bd:#cfe5f7;--soft:#eef7ff}
+@media(prefers-color-scheme:dark){:root{--bg1:#0f1b2a;--bg2:#162538;--fg:#e6f1fb;--card:#1b2d42;--bd:#2c4560;--soft:#223850}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:linear-gradient(180deg,var(--bg1),var(--bg2)) fixed;color:var(--fg);font-family:"Mali","Noto Sans Thai",system-ui,sans-serif;padding:20px 16px 40px}
+.w{max-width:720px;margin:auto}h2{text-align:center}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:12px 14px;font-size:14px;box-shadow:0 6px 16px rgba(90,169,230,.15)}
+.c b{font-size:26px;display:block;color:var(--ac)}
+input,button{padding:12px 18px;margin:4px 0;border-radius:999px;border:1.5px solid var(--bd);font:inherit;font-size:15px;background:var(--soft);color:var(--fg);outline:0}
+button{border:0;color:#fff;font-weight:600;background:linear-gradient(135deg,var(--ac2),var(--ac));box-shadow:0 5px 12px rgba(90,169,230,.3);cursor:pointer}
+button.x{background:#9bb0c4;box-shadow:none}
+.s{overflow-x:auto;background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:6px}
+table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px solid var(--bd);padding:8px;text-align:left}
+td button{padding:6px 12px;font-size:13px}
+#low{background:#fff3cd;color:#6b4e00;padding:12px;border-radius:14px;margin:10px 0;display:none}
+</style></head><body><div class="w">
+<h2>📷 Admin Dashboard</h2>
+<div id="login" style="text-align:center"><input id="em" type="email" placeholder="อีเมลแอดมิน"><br><input id="pw" type="password" placeholder="รหัสผ่าน"><br><button id="lg">เข้าสู่ระบบ</button> <span id="le"></span></div>
+<div id="app" style="display:none">
+<div id="low">⚠️ ฟิล์มที่เปิดขายเหลือน้อย</div>
+<div class="g" id="st"></div>
+<p><button id="op">OPEN SPECIAL ROUND</button> <button id="cl" class="x">CLOSE BOOKING</button> <button id="lo" class="x">ออกจากระบบ</button></p>
+<h3>ออเดอร์</h3><div class="s"><table id="ot"></table></div>
+<h3>ประวัติ</h3><div class="s"><table id="lt"></table></div>
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let timer;
+async function load(){
+  const{data:s,error}=await db.rpc("admin_stats"); if(error||!s)return;
+  const T=(a,b)=>`<div class="c">${a}<b>${esc(b)}</b></div>`;
+  $("st").innerHTML=T("ฟิล์มทั้งหมด",s.total)+T("เปิดขาย",s.sale_limit)+T("จองและยืนยันแล้ว",s.booked)+
+    T("ยกเลิกและคืนกลับมา",s.cancelled)+T("เหลือสำหรับเปิดรับจอง",s.remaining)+T("ยังรับจองเพิ่มได้ตอนนี้",s.acceptable)+
+    T("ฟิล์มส่วนตัว",s.personal)+T("ฟิล์มสำรอง",s.reserve)+T("สถานะ",s.open?(s.special?"เปิด (รอบพิเศษ)":"เปิด"):"ปิด");
+  $("low").style.display=s.low?"block":"none";
+  const{data:o}=await db.from("orders").select("*").order("created_at",{ascending:false});
+  $("ot").innerHTML="<tr><th>รหัส</th><th>ชื่อ</th><th>เบอร์</th><th>รูป</th><th>สถานะ</th><th></th></tr>"+(o||[]).map(r=>
+    `<tr><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${r.qty}</td><td>${esc(r.status)}</td>
+    <td>${r.status=="confirmed"?`<button data-c="${esc(r.code)}">ยกเลิก</button>`:""}</td></tr>`).join("");
+  const{data:l}=await db.from("stock_logs").select("*").order("created_at",{ascending:false}).limit(50);
+  $("lt").innerHTML="<tr><th>เวลา</th><th>รหัส</th><th>การกระทำ</th><th>จำนวน</th></tr>"+(l||[]).map(r=>
+    `<tr><td>${new Date(r.created_at).toLocaleString("th-TH",{timeZone:"Asia/Bangkok"})}</td><td>${esc(r.code)}</td><td>${esc(r.action)}</td><td>${r.qty_change}</td></tr>`).join("");
+}
+function show(on){$("login").style.display=on?"none":"";$("app").style.display=on?"":"none";
+  clearInterval(timer);if(on){load();timer=setInterval(load,5000);}}
+$("lg").onclick=async()=>{const{error}=await db.auth.signInWithPassword({email:$("em").value,password:$("pw").value});
+  $("le").textContent=error?"เข้าสู่ระบบไม่สำเร็จ":"";if(!error)show(true);};
+$("lo").onclick=async()=>{await db.auth.signOut();show(false);};
+$("op").onclick=async()=>{const{data}=await db.rpc("admin_set_open",{p_open:true,p_special:true});
+  if(data&&!data.ok)alert("ไม่มีฟิล์มเหลือให้เปิดรับจอง");load();};
+$("cl").onclick=async()=>{await db.rpc("admin_set_open",{p_open:false,p_special:false});load();};
+$("ot").onclick=async e=>{const c=e.target.dataset.c;if(c&&confirm("ยกเลิกออเดอร์ "+c+" ?")){await db.rpc("admin_cancel",{p_code:c});load();}};
+db.auth.getSession().then(({data})=>show(!!data.session));
+</script></body></html>

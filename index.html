@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>จองฟิล์ม Polaroid</title>
+<link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg1:#dff0ff;--bg2:#fff;--fg:#1f3a5f;--card:#fff;--ac:#5aa9e6;--ac2:#8ec9f5;--bd:#cfe5f7;--soft:#eef7ff}
+@media(prefers-color-scheme:dark){:root{--bg1:#0f1b2a;--bg2:#162538;--fg:#e6f1fb;--card:#1b2d42;--bd:#2c4560;--soft:#223850}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:linear-gradient(180deg,var(--bg1),var(--bg2)) fixed;color:var(--fg);font-family:"Mali","Noto Sans Thai",system-ui,sans-serif;padding:20px 16px 40px}
+.w{max-width:440px;margin:auto}
+h1{text-align:center;font-size:26px;margin:8px 0 2px}
+.sub{text-align:center;opacity:.7;margin:0 0 18px;font-size:14px}
+.p{position:relative;background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:26px 18px 22px;margin:22px 0;box-shadow:0 10px 26px rgba(90,169,230,.18)}
+.p::before{content:"";position:absolute;top:-12px;left:50%;width:84px;height:24px;margin-left:-42px;background:rgba(142,201,245,.55);border-radius:4px;transform:rotate(-2deg)}
+.p b.t{display:block;font-size:18px;margin-bottom:6px}
+.note{background:var(--soft);border-radius:14px;padding:12px 14px;font-size:14px;text-align:center;border:1px dashed var(--ac2)}
+input,button{width:100%;padding:13px 16px;margin:6px 0;border-radius:999px;border:1.5px solid var(--bd);font:inherit;font-size:16px;background:var(--soft);color:var(--fg);outline:0}
+input:focus{border-color:var(--ac);background:var(--card)}
+button{border:0;color:#fff;font-weight:600;background:linear-gradient(135deg,var(--ac2),var(--ac));box-shadow:0 6px 14px rgba(90,169,230,.35);cursor:pointer;margin-top:12px}
+button:active{transform:scale(.98)}
+.m{margin-top:10px;font-weight:600;text-align:center;min-height:1em}
+#notice{display:none;text-align:center;padding:14px;border-radius:16px;color:#fff;font-weight:600;background:linear-gradient(135deg,#8ec9f5,#5aa9e6);box-shadow:0 8px 18px rgba(90,169,230,.35)}
+#closed{text-align:center;font-size:17px}
+</style></head><body><div class="w">
+<h1>📷 จองฟิล์ม Polaroid</h1>
+<p class="sub">♡ จองง่าย ๆ ได้ที่นี่เลยนะคะ ♡</p>
+<div id="notice"></div>
+<div class="note">สามารถแก้ไขหรือเปลี่ยนแปลงออเดอร์ได้ถึงวันที่ 30 พฤศจิกายน 2569 เท่านั้น<br>(30/11/69)</div>
+<div id="closed" class="p" style="display:none">ขณะนี้ปิดรับจองแล้ว ขอบคุณทุกคนที่ให้ความสนใจนะคะ ♡</div>
+<div id="book" class="p" style="display:none">
+  <b class="t">✨ จองฟิล์ม</b>
+  <input id="name" placeholder="ชื่อ">
+  <input id="phone" placeholder="เบอร์โทร" inputmode="tel">
+  <input id="qty" type="number" min="1" placeholder="จำนวนรูป" inputmode="numeric">
+  <button id="go">ยืนยันการจอง</button><div class="m" id="msg"></div>
+</div>
+<div id="edit" class="p">
+  <b class="t">🩵 แก้ไขออเดอร์</b>
+  <input id="ecode" placeholder="รหัสการจอง">
+  <input id="ephone" placeholder="เบอร์โทรที่ใช้จอง" inputmode="tel">
+  <input id="eqty" type="number" min="1" placeholder="จำนวนรูปใหม่" inputmode="numeric">
+  <button id="ego">บันทึกการแก้ไข</button><div class="m" id="emsg"></div>
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const E={CLOSED:"ขณะนี้ปิดรับจองแล้วค่ะ",NOT_ENOUGH:"ขออภัยค่ะ สินค้าคงเหลือไม่เพียงพอสำหรับออเดอร์นี้ ♡",
+INVALID:"กรุณากรอกข้อมูลให้ครบและถูกต้องค่ะ",DEADLINE:"หมดเวลาแก้ไขออเดอร์แล้วค่ะ",NOT_FOUND:"ไม่พบออเดอร์ กรุณาตรวจรหัสและเบอร์โทรค่ะ"};
+async function status(){
+  const{data}=await db.rpc("public_status"); if(!data)return;
+  $("book").style.display=data.open?"":"none";
+  $("closed").style.display=data.open?"none":"";
+  $("edit").style.display=data.edit_open?"":"none";
+  $("notice").style.display=data.special?"block":"none";
+  $("notice").textContent="SPECIAL ROUND ♡ เปิดจองรอบพิเศษแล้ว! สามารถกลับมาจองได้อีกครั้งตามจำนวนที่เปิดรับ";
+}
+$("go").onclick=async()=>{
+  const{data,error}=await db.rpc("create_order",{p_name:$("name").value,p_phone:$("phone").value,p_qty:+$("qty").value});
+  $("msg").textContent=error?"เกิดข้อผิดพลาด ลองใหม่อีกครั้งค่ะ":data.ok?"จองสำเร็จ ♡ รหัสการจองของคุณคือ "+data.code+" (กรุณาจดไว้)":E[data.error];
+  status();
+};
+$("ego").onclick=async()=>{
+  const{data,error}=await db.rpc("update_order",{p_code:$("ecode").value,p_phone:$("ephone").value,p_qty:+$("eqty").value});
+  $("emsg").textContent=error?"เกิดข้อผิดพลาด ลองใหม่อีกครั้งค่ะ":data.ok?"แก้ไขออเดอร์เรียบร้อยแล้วค่ะ ♡":E[data.error];
+  status();
+};
+status(); setInterval(status,5000);
+</script></body></html>
