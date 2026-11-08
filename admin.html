@@ -75,7 +75,7 @@ $("gu").onclick=async()=>{let i=0;for(const f of $("gf").files){const p=`g-${Dat
  const u=await db.storage.from("assets").upload(p,f);if(!u.error)await db.from("gallery").insert({path:p});}$("gf").value="";loadGal();};
 $("ga").onclick=async e=>{const id=e.target.dataset.g;if(!id||!confirm("ลบรูปนี้?"))return;await db.storage.from("assets").remove([e.target.dataset.gp]);await db.from("gallery").delete().eq("id",id);loadGal();};
 function show(on){$("login").hidden=on;$("app").hidden=!on;clearInterval(timer);if(on){load();loadGal();timer=setInterval(load,5000);}}
-$("lg").onclick=async()=>{const{error}=await db.auth.signInWithPassword({email:$("em").value,password:$("pw").value});$("le").textContent=error?"เข้าสู่ระบบไม่สำเร็จ":"";if(!error)show(true);};
+$("lg").onclick=async()=>{const{error}=await db.auth.signInWithPassword({email:$("em").value,password:$("pw").value});$("le").textContent=error?"เข้าสู่ระบบไม่สำเร็จ: "+error.message:"";if(!error)show(true);};
 $("lo").onclick=async()=>{await db.auth.signOut();show(false);};
 db.auth.getSession().then(({data})=>show(!!data.session));
 </script></body></html>
