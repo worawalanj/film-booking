@@ -49,7 +49,7 @@ table{width:100%;border-collapse:collapse}td{padding:6px;border-bottom:1px solid
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <script>
-const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY),$=id=>document.getElementById(id);
+const db=supabase.createClient(new URL(SUPABASE_URL.trim()).origin,SUPABASE_KEY.trim()),$=id=>document.getElementById(id);
 const tm=t=>new Date(t).toLocaleTimeString("th-TH",{timeZone:"Asia/Bangkok",hour:"2-digit",minute:"2-digit"});
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const P=q=>q<1?0:q<=5?[59,109,159,236,295][q-1]:q*(q>=10?49:50);
