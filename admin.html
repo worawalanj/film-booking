@@ -1,65 +1,65 @@
 <!doctype html>
-<html lang="th"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex">
-<title>Admin Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;600&display=swap" rel="stylesheet">
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>Admin · POLAROID MEMORY</title>
+<link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg1:#dff0ff;--bg2:#fff;--fg:#1f3a5f;--card:#fff;--ac:#5aa9e6;--ac2:#8ec9f5;--bd:#cfe5f7;--soft:#eef7ff}
-@media(prefers-color-scheme:dark){:root{--bg1:#0f1b2a;--bg2:#162538;--fg:#e6f1fb;--card:#1b2d42;--bd:#2c4560;--soft:#223850}}
-*{box-sizing:border-box}
-body{margin:0;min-height:100vh;background:linear-gradient(180deg,var(--bg1),var(--bg2)) fixed;color:var(--fg);font-family:"Mali","Noto Sans Thai",system-ui,sans-serif;padding:20px 16px 40px}
-.w{max-width:720px;margin:auto}h2{text-align:center}
-.g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.c{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:12px 14px;font-size:14px;box-shadow:0 6px 16px rgba(90,169,230,.15)}
-.c b{font-size:26px;display:block;color:var(--ac)}
-input,button{padding:12px 18px;margin:4px 0;border-radius:999px;border:1.5px solid var(--bd);font:inherit;font-size:15px;background:var(--soft);color:var(--fg);outline:0}
-button{border:0;color:#fff;font-weight:600;background:linear-gradient(135deg,var(--ac2),var(--ac));box-shadow:0 5px 12px rgba(90,169,230,.3);cursor:pointer}
-button.x{background:#9bb0c4;box-shadow:none}
-.s{overflow-x:auto;background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:6px}
-table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px solid var(--bd);padding:8px;text-align:left}
-td button{padding:6px 12px;font-size:13px}
-#low{background:#fff3cd;color:#6b4e00;padding:12px;border-radius:14px;margin:10px 0;display:none}
-</style></head><body><div class="w">
-<h2>📷 Admin Dashboard</h2>
+:root{--pri:#89d0f2;--lt:#DDF3FF;--bb:#B9E5F8;--soft:#F3FAFD;--fg:#45677D;--card:#fff}
+@media(prefers-color-scheme:dark){:root{--lt:#223850;--bb:#2c4560;--soft:#142233;--fg:#e1eef7;--card:#1b2d42}}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:linear-gradient(180deg,var(--lt),var(--soft)) fixed;color:var(--fg);font-family:"Mali",system-ui,sans-serif;padding:16px}
+.w{max-width:900px;margin:auto}h2{text-align:center}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.c{background:var(--card);border:1px solid var(--bb);border-radius:16px;padding:10px 14px;font-size:13px}.c b{display:block;font-size:24px;color:var(--pri)}
+input,button{padding:9px 14px;margin:3px;border-radius:999px;border:1.5px solid var(--bb);font:inherit;font-size:14px;background:var(--soft);color:var(--fg)}
+button{border:0;color:#fff;font-weight:700;background:var(--pri);cursor:pointer}button.x{background:#9bb0c4}button.s{padding:5px 9px;font-size:12px;margin:2px}
+.s2{overflow-x:auto;background:var(--card);border:1px solid var(--bb);border-radius:16px;padding:6px;margin-bottom:10px}
+table{border-collapse:collapse;width:100%;font-size:13px}td,th{border-bottom:1px solid var(--bb);padding:6px;text-align:left;vertical-align:top}
+.al{color:#b45309;font-weight:700}
+</style></head><body><div class="w"><h2>📷 Admin · POLAROID MEMORY</h2>
 <div id="login" style="text-align:center"><input id="em" type="email" placeholder="อีเมลแอดมิน"><br><input id="pw" type="password" placeholder="รหัสผ่าน"><br><button id="lg">เข้าสู่ระบบ</button> <span id="le"></span></div>
-<div id="app" style="display:none">
-<div id="low">⚠️ ฟิล์มที่เปิดขายเหลือน้อย</div>
+<div id="app" hidden>
 <div class="g" id="st"></div>
-<p><button id="op">OPEN SPECIAL ROUND</button> <button id="cl" class="x">CLOSE BOOKING</button> <button id="lo" class="x">ออกจากระบบ</button></p>
-<h3>ออเดอร์</h3><div class="s"><table id="ot"></table></div>
-<h3>ประวัติ</h3><div class="s"><table id="lt"></table></div>
-</div></div>
+<p><button id="pa"></button> <button id="lo" class="x">ออกจากระบบ</button> <button id="csv" class="x">Export CSV</button></p>
+<details class="s2"><summary><b>ตั้งค่าวัน/เวลา/สถานที่</b></summary>
+วัน <input id="sd" type="date"> เริ่ม <input id="ss" type="time"> สิ้นสุด <input id="se" type="time"><br>
+นาที/ภาพ <input id="sp" type="number" style="width:80px"> เตรียมตัว <input id="sr" type="number" style="width:80px"> พักระหว่างคิว <input id="sg" type="number" style="width:80px"><br>
+สถานที่ (คั่นด้วย ,) <input id="sl"> <label><input id="so" type="checkbox"> เปิดรับจอง</label> <button id="sv">บันทึก</button></details>
+<h3>Queue Timeline</h3><div class="s2"><table id="tl"></table></div>
+<h3>ประวัติการเปลี่ยนแปลง</h3><div class="s2"><table id="lt"></table></div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <script>
-const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-const $=id=>document.getElementById(id);
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY),$=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let timer;
-async function load(){
-  const{data:s,error}=await db.rpc("admin_stats"); if(error||!s)return;
-  const T=(a,b)=>`<div class="c">${a}<b>${esc(b)}</b></div>`;
-  $("st").innerHTML=T("ฟิล์มทั้งหมด",s.total)+T("เปิดขาย",s.sale_limit)+T("จองและยืนยันแล้ว",s.booked)+
-    T("ยกเลิกและคืนกลับมา",s.cancelled)+T("เหลือสำหรับเปิดรับจอง",s.remaining)+T("ยังรับจองเพิ่มได้ตอนนี้",s.acceptable)+
-    T("ฟิล์มส่วนตัว",s.personal)+T("ฟิล์มสำรอง",s.reserve)+T("สถานะ",s.open?(s.special?"เปิด (รอบพิเศษ)":"เปิด"):"ปิด");
-  $("low").style.display=s.low?"block":"none";
-  const{data:o}=await db.from("orders").select("*").order("created_at",{ascending:false});
-  $("ot").innerHTML="<tr><th>รหัส</th><th>ชื่อ</th><th>เบอร์</th><th>รูป</th><th>สถานะ</th><th></th></tr>"+(o||[]).map(r=>
-    `<tr><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${r.qty}</td><td>${esc(r.status)}</td>
-    <td>${r.status=="confirmed"?`<button data-c="${esc(r.code)}">ยกเลิก</button>`:""}</td></tr>`).join("");
-  const{data:l}=await db.from("stock_logs").select("*").order("created_at",{ascending:false}).limit(50);
-  $("lt").innerHTML="<tr><th>เวลา</th><th>รหัส</th><th>การกระทำ</th><th>จำนวน</th></tr>"+(l||[]).map(r=>
-    `<tr><td>${new Date(r.created_at).toLocaleString("th-TH",{timeZone:"Asia/Bangkok"})}</td><td>${esc(r.code)}</td><td>${esc(r.action)}</td><td>${r.qty_change}</td></tr>`).join("");
-}
-function show(on){$("login").style.display=on?"none":"";$("app").style.display=on?"":"none";
-  clearInterval(timer);if(on){load();timer=setInterval(load,5000);}}
-$("lg").onclick=async()=>{const{error}=await db.auth.signInWithPassword({email:$("em").value,password:$("pw").value});
-  $("le").textContent=error?"เข้าสู่ระบบไม่สำเร็จ":"";if(!error)show(true);};
+const f=t=>new Date(t).toLocaleTimeString("th-TH",{timeZone:"Asia/Bangkok",hour:"2-digit",minute:"2-digit"});
+let timer,cfg,rows=[],filled=false;
+async function load(){await db.rpc("admin_tick");
+ const{data:s}=await db.from("settings").select("*").single();cfg=s;if(s&&!filled){filled=true;$("sd").value=s.day;$("ss").value=s.start_t.slice(0,5);$("se").value=s.end_t.slice(0,5);$("sp").value=s.per_photo;$("sr").value=s.prep;$("sg").value=s.gap;$("sl").value=s.locations;$("so").checked=s.open;}
+ $("pa").textContent=s?.paused?"RESUME QUEUE":"PAUSE QUEUE";
+ const{data:b}=await db.from("bookings").select("*").neq("status","HOLD").order("start_at");rows=b||[];
+ const ok=rows.filter(r=>r.status!="CANCELLED"),T=(a,v)=>`<div class="c">${a}<b>${esc(v)}</b></div>`;
+ $("st").innerHTML=T("การจอง",ok.length)+T("จำนวนภาพ",ok.reduce((a,r)=>a+r.qty,0))+T("ยอดเงินรวม",ok.reduce((a,r)=>a+r.price,0)+" ฿")+T("ถ่ายเสร็จ",ok.filter(r=>r.status=="COMPLETED").length)+T("สถานะคิว",s?.paused?"หยุดชั่วคราว":"ปกติ");
+ const now=Date.now();
+ $("tl").innerHTML="<tr><th>เวลา</th><th>ลูกค้า</th><th>ภาพ</th><th>สถานที่</th><th>สถานะ</th><th>จ่าย</th><th></th></tr>"+rows.map(r=>{
+  const al=r.status=="WAITING"&&now>new Date(r.start_at).getTime()+300000?'<div class="al">⚠️ เลยเวลานัด 5 นาที</div>':"";
+  const B=(a,l)=>`<button class="s ${a=="CANCELLED"?"x":""}" data-c="${esc(r.code)}" data-a="${a}">${l}</button>`;
+  return `<tr><td>${f(r.start_at)}–${f(r.end_at)}</td><td>${esc(r.nick)}<br>${esc(r.ig)}<br><small>${esc(r.code)} ${esc(r.phone)}<br>${esc(r.note)}</small></td><td>${r.qty}<br>${r.price}฿</td><td>${esc(r.location)}</td><td>${esc(r.status)}${al}</td><td>${esc(r.pay)}</td>
+  <td>${["COMPLETED","CANCELLED"].includes(r.status)?"":B("IN_PROGRESS","เริ่ม")+B("COMPLETED","เสร็จ")+B("SKIPPED","ข้าม")+B("END","ไปท้ายคิว")+B("RESCH","เลื่อน")+B("CANCELLED","ยกเลิก")}</td></tr>`}).join("");
+ const{data:l}=await db.from("queue_logs").select("*").order("at",{ascending:false}).limit(60);
+ $("lt").innerHTML="<tr><th>เวลา</th><th>รหัส</th><th>การกระทำ</th><th>เดิม→ใหม่</th><th>เหตุผล</th><th>ผู้ทำ</th></tr>"+(l||[]).map(r=>`<tr><td>${new Date(r.at).toLocaleString("th-TH",{timeZone:"Asia/Bangkok"})}</td><td>${esc(r.code)}</td><td>${esc(r.action)}</td><td>${r.old_start?f(r.old_start):""}${r.new_start?" → "+f(r.new_start):""}</td><td>${esc(r.reason)}</td><td>${esc(r.actor)}</td></tr>`).join("");}
+$("tl").onclick=async e=>{const c=e.target.dataset.c,a=e.target.dataset.a;if(!c)return;let r="";
+ if(!["IN_PROGRESS","COMPLETED"].includes(a)){r=prompt("เหตุผล");if(r===null)return;}
+ let d;if(a=="RESCH"){const h=prompt("เวลาเริ่มใหม่ เช่น 19:30");if(!h)return;d=(await db.rpc("admin_reschedule",{p_code:c,p_start:new Date(`${cfg.day}T${h}:00+07:00`).toISOString(),p_reason:r})).data;}
+ else if(a=="END")d=(await db.rpc("admin_reschedule",{p_code:c,p_start:null,p_reason:r})).data;
+ else d=(await db.rpc("admin_set_status",{p_code:c,p_status:a,p_reason:r})).data;
+ if(d&&!d.ok)alert({OVERLAP:"เวลาทับกับคิวอื่น",OUT_OF_RANGE:"เกินเวลาสิ้นสุดที่เปิดรับ"}[d.error]||"ทำรายการไม่สำเร็จ");load();};
+$("pa").onclick=async()=>{const r=prompt("เหตุผล");if(r===null)return;await db.rpc("admin_pause",{p:!cfg.paused,p_reason:r});load();};
+$("sv").onclick=async()=>{await db.rpc("admin_save_settings",{p_day:$("sd").value,p_start:$("ss").value,p_end:$("se").value,p_per:+$("sp").value,p_prep:+$("sr").value,p_gap:+$("sg").value,p_locs:$("sl").value,p_open:$("so").checked});alert("บันทึกแล้ว");load();};
+$("csv").onclick=()=>{const h=["code","start_at","end_at","nick","qty","price","ig","phone","location","note","status","pay"];
+ const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';const t="\ufeff"+h.join(",")+"\n"+rows.map(r=>h.map(k=>q(r[k])).join(",")).join("\n");
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:"text/csv"}));a.download="bookings.csv";a.click();};
+function show(on){$("login").hidden=on;$("app").hidden=!on;clearInterval(timer);if(on){load();timer=setInterval(load,5000);}}
+$("lg").onclick=async()=>{const{error}=await db.auth.signInWithPassword({email:$("em").value,password:$("pw").value});$("le").textContent=error?"เข้าสู่ระบบไม่สำเร็จ":"";if(!error)show(true);};
 $("lo").onclick=async()=>{await db.auth.signOut();show(false);};
-$("op").onclick=async()=>{const{data}=await db.rpc("admin_set_open",{p_open:true,p_special:true});
-  if(data&&!data.ok)alert("ไม่มีฟิล์มเหลือให้เปิดรับจอง");load();};
-$("cl").onclick=async()=>{await db.rpc("admin_set_open",{p_open:false,p_special:false});load();};
-$("ot").onclick=async e=>{const c=e.target.dataset.c;if(c&&confirm("ยกเลิกออเดอร์ "+c+" ?")){await db.rpc("admin_cancel",{p_code:c});load();}};
 db.auth.getSession().then(({data})=>show(!!data.session));
 </script></body></html>
