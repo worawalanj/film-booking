@@ -24,11 +24,11 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{border-bottom:1px
 วัน <input id="sd" type="date"> เริ่ม <input id="ss" type="time"> สิ้นสุด <input id="se" type="time"><br>
 นาที/ภาพ <input id="sp" type="number" style="width:80px"> เตรียมตัว <input id="sr" type="number" style="width:80px"> พักระหว่างคิว <input id="sg" type="number" style="width:80px"><br>
 สถานที่ (คั่นด้วย ,) <input id="sl"> <label><input id="so" type="checkbox"> เปิดรับจอง</label> <button id="sv">บันทึก</button></details>
-<details class="s2"><summary><b>การชำระเงิน / QR</b></summary>
+<details class="s2"><summary><b>การชำระเงิน / QR / Instagram ร้าน</b></summary>IG ร้าน <input id="igs" placeholder="ชื่อไอจี เช่น polaroid.memory"><br>
 <select id="pm"><option value="prepay">ชำระล่วงหน้า</option><option value="postpay">ชำระหลังถ่ายเสร็จ</option></select>
 <input id="qf" type="file" accept="image/jpeg,image/png,image/webp"> <button id="qs">บันทึก</button> <span id="qm"></span><br><small>เลือกไฟล์ QR เฉพาะตอนต้องการเปลี่ยน</small></details>
 <details class="s2"><summary><b>Gallery (รูปตัวอย่าง)</b></summary><input id="gf" type="file" accept="image/jpeg,image/png,image/webp" multiple> <button id="gu">อัปโหลด</button><div id="ga"></div></details>
-<h3>Queue Timeline</h3><div class="s2"><table id="tl"></table></div>
+<h3>Queue Timeline</h3><label><input id="shc" type="checkbox"> แสดงคิวที่ยกเลิกแล้ว</label><div class="s2"><div id="tl"></div></div>
 <h3>ประวัติการเปลี่ยนแปลง</h3><div class="s2"><table id="lt"></table></div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
@@ -38,17 +38,22 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const f=t=>new Date(t).toLocaleTimeString("th-TH",{timeZone:"Asia/Bangkok",hour:"2-digit",minute:"2-digit"});
 let timer,cfg,rows=[],filled=false;
 async function load(){await db.rpc("admin_tick");
- const{data:s}=await db.from("settings").select("*").single();cfg=s;if(s&&!filled){filled=true;$("sd").value=s.day;$("ss").value=s.start_t.slice(0,5);$("se").value=s.end_t.slice(0,5);$("sp").value=s.per_photo;$("sr").value=s.prep;$("sg").value=s.gap;$("sl").value=s.locations;$("so").checked=s.open;$("pm").value=s.pay_mode||"prepay";}
+ const{data:s}=await db.from("settings").select("*").single();cfg=s;if(s&&!filled){filled=true;$("sd").value=s.day;$("ss").value=s.start_t.slice(0,5);$("se").value=s.end_t.slice(0,5);$("sp").value=s.per_photo;$("sr").value=s.prep;$("sg").value=s.gap;$("sl").value=s.locations;$("so").checked=s.open;$("pm").value=s.pay_mode||"prepay";$("igs").value=s.ig_contact||"";}
  $("pa").textContent=s?.paused?"RESUME QUEUE":"PAUSE QUEUE";
- const{data:b}=await db.from("bookings").select("*").neq("status","HOLD").order("start_at");rows=b||[];
+ const{data:b}=await db.from("bookings").select("*").neq("status","HOLD").not("nick","is",null).order("start_at");rows=b||[];
  const ok=rows.filter(r=>r.status!="CANCELLED"),T=(a,v)=>`<div class="c">${a}<b>${esc(v)}</b></div>`;
  $("st").innerHTML=T("การจอง",ok.length)+T("จำนวนภาพ",ok.reduce((a,r)=>a+r.qty,0))+T("ยอดเงินรวม",ok.reduce((a,r)=>a+r.price,0)+" ฿")+T("ถ่ายเสร็จ",ok.filter(r=>r.status=="COMPLETED").length)+T("สถานะคิว",s?.paused?"หยุดชั่วคราว":"ปกติ");
  const now=Date.now();
- $("tl").innerHTML="<tr><th>เวลา</th><th>ลูกค้า</th><th>ภาพ</th><th>สถานที่</th><th>สถานะ</th><th>จ่าย</th><th></th></tr>"+rows.map(r=>{
+ $("tl").innerHTML=rows.filter(r=>$("shc").checked||r.status!="CANCELLED").map(r=>{
   const al=r.status=="WAITING"&&now>new Date(r.start_at).getTime()+300000?'<div class="al">⚠️ เลยเวลานัด 5 นาที</div>':"";
-  const B=(a,l)=>`<button class="s ${a=="CANCELLED"?"x":""}" data-c="${esc(r.code)}" data-a="${a}">${l}</button>`;
-  return `<tr><td>${f(r.start_at)}–${f(r.end_at)}</td><td>${esc(r.nick)}<br>${esc(r.ig)}<br><small>${esc(r.code)} ${esc(r.phone)}<br>${esc(r.note)}</small></td><td>${r.qty}<br>${r.price}฿</td><td>${esc(r.location)}</td><td>${esc(r.status)}${al}</td><td>${esc(r.pay)}<br>${r.slip_path?`<button class="s x" data-s="${esc(r.slip_path)}">ดูสลิป</button>`:""}<button class="s" data-c="${esc(r.code)}" data-p="PAID">PAID</button><button class="s x" data-c="${esc(r.code)}" data-p="UNPAID">UNPAID</button><button class="s x" data-c="${esc(r.code)}" data-p="REFUNDED">REFUNDED</button></td>
-  <td>${["COMPLETED","CANCELLED"].includes(r.status)?"":B("IN_PROGRESS","เริ่ม")+B("COMPLETED","เสร็จ")+B("SKIPPED","ข้าม")+B("END","ไปท้ายคิว")+B("RESCH","เลื่อน")+B("CANCELLED","ยกเลิก")}</td></tr>`}).join("");
+  const B=(a,l,c)=>`<button class="s ${c||""}" data-c="${esc(r.code)}" data-a="${a}">${l}</button>`;
+  const P=(p,c)=>`<button class="s ${c||""}" data-c="${esc(r.code)}" data-p="${p}">${p}</button>`;
+  const done=["COMPLETED","CANCELLED"].includes(r.status);
+  return `<div class="c" style="margin:8px 0"><strong style="font-size:17px">${f(r.start_at)}–${f(r.end_at)} · ${esc(r.nick)}</strong><br>
+  IG: ${esc(r.ig)} · ${r.qty} ภาพ · ${r.price} ฿ · ${esc(r.location)}<br><small>${esc(r.code)} ${esc(r.phone)} ${esc(r.note)}</small><br>
+  สถานะ: <strong>${esc(r.status)}</strong> · จ่าย: <strong>${esc(r.pay)}</strong>${al}<div>
+  ${done?"":B("IN_PROGRESS","เริ่ม")+B("COMPLETED","เสร็จ")+B("SKIPPED","ข้าม")+B("END","ไปท้ายคิว")+B("RESCH","เลื่อน")+B("CANCELLED","❌ ยกเลิกคิวนี้","x")}</div><div>
+  ${r.slip_path?`<button class="s x" data-s="${esc(r.slip_path)}">ดูสลิป</button>`:""}${P("PAID")}${P("UNPAID","x")}${P("REFUNDED","x")}</div></div>`;}).join("")||"<p>ยังไม่มีคิว</p>";
  const{data:l}=await db.from("queue_logs").select("*").order("at",{ascending:false}).limit(60);
  $("lt").innerHTML="<tr><th>เวลา</th><th>รหัส</th><th>การกระทำ</th><th>เดิม→ใหม่</th><th>เหตุผล</th><th>ผู้ทำ</th></tr>"+(l||[]).map(r=>`<tr><td>${new Date(r.at).toLocaleString("th-TH",{timeZone:"Asia/Bangkok"})}</td><td>${esc(r.code)}</td><td>${esc(r.action)}</td><td>${r.old_start?f(r.old_start):""}${r.new_start?" → "+f(r.new_start):""}</td><td>${esc(r.reason)}</td><td>${esc(r.actor)}</td></tr>`).join("");}
 $("tl").onclick=async e=>{const D=e.target.dataset;
@@ -60,7 +65,7 @@ $("tl").onclick=async e=>{const D=e.target.dataset;
  else if(a=="END")d=(await db.rpc("admin_reschedule",{p_code:c,p_start:null,p_reason:r})).data;
  else d=(await db.rpc("admin_set_status",{p_code:c,p_status:a,p_reason:r})).data;
  if(d&&!d.ok)alert({OVERLAP:"เวลาทับกับคิวอื่น",OUT_OF_RANGE:"เกินเวลาสิ้นสุดที่เปิดรับ"}[d.error]||"ทำรายการไม่สำเร็จ");load();};
-$("pa").onclick=async()=>{const r=prompt("เหตุผล");if(r===null)return;await db.rpc("admin_pause",{p:!cfg.paused,p_reason:r});load();};
+$("shc").onchange=load;$("pa").onclick=async()=>{const r=prompt("เหตุผล");if(r===null)return;await db.rpc("admin_pause",{p:!cfg.paused,p_reason:r});load();};
 $("sv").onclick=async()=>{await db.rpc("admin_save_settings",{p_day:$("sd").value,p_start:$("ss").value,p_end:$("se").value,p_per:+$("sp").value,p_prep:+$("sr").value,p_gap:+$("sg").value,p_locs:$("sl").value,p_open:$("so").checked});alert("บันทึกแล้ว");load();};
 $("csv").onclick=()=>{const h=["code","start_at","end_at","nick","qty","price","ig","phone","location","note","status","pay"];
  const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';const t="\ufeff"+h.join(",")+"\n"+rows.map(r=>h.map(k=>q(r[k])).join(",")).join("\n");
@@ -68,7 +73,7 @@ $("csv").onclick=()=>{const h=["code","start_at","end_at","nick","qty","price","
 const ext=f=>f.type=="image/png"?"png":f.type=="image/webp"?"webp":"jpg";
 $("qs").onclick=async()=>{let p=cfg.qr_path;const f=$("qf").files[0];
  if(f){p="qr-"+Date.now()+"."+ext(f);const u=await db.storage.from("assets").upload(p,f);if(u.error){$("qm").textContent="อัปโหลดไม่สำเร็จ";return;}}
- await db.rpc("admin_save_pay",{p_mode:$("pm").value,p_qr:p});$("qm").textContent="บันทึกแล้ว";load();};
+ await db.rpc("admin_save_ig",{p_ig:$("igs").value});await db.rpc("admin_save_pay",{p_mode:$("pm").value,p_qr:p});$("qm").textContent="บันทึกแล้ว";load();};
 async function loadGal(){const{data}=await db.from("gallery").select("*").order("created_at");
  $("ga").innerHTML=(data||[]).map(g=>`<span style="display:inline-block;margin:4px;text-align:center"><img src="${esc(db.storage.from("assets").getPublicUrl(g.path).data.publicUrl)}" width="80" height="80" style="object-fit:cover;border-radius:8px" alt=""><br><button class="s x" data-g="${g.id}" data-gp="${esc(g.path)}">ลบ</button></span>`).join("");}
 $("gu").onclick=async()=>{let i=0;for(const f of $("gf").files){const p=`g-${Date.now()}-${i++}.${ext(f)}`;

@@ -30,7 +30,7 @@ table{width:100%;border-collapse:collapse}td{padding:6px;border-bottom:1px solid
 <div id="pn" class="n" hidden>⏸ ขณะนี้ผู้ดูแลหยุดคิวชั่วคราว เวลาคิวอาจมีการเปลี่ยนแปลง</div>
 <section id="home"><div class="p"><h3>ยินดีต้อนรับ ♡</h3>จองคิวถ่ายโพลารอยด์วันปัจฉิมล่วงหน้าผ่านเว็บไซต์เท่านั้น (ไม่รับ Walk-in)<br><br>
 <button onclick="go('book')">PRE-ORDER NOW</button><button class="x" onclick="go('book')">CHECK AVAILABLE QUEUE</button></div>
-<div class="p"><h3>วิธีการจอง</h3>1) เลือกจำนวนรูปและสถานที่ 2) เลือกเวลาว่าง (ล็อกให้ 5 นาที) 3) กรอกข้อมูลแล้วยืนยัน 4) จดรหัสการจองและรหัสแก้ไข<br><br><b>กติกา</b><br>• มาถึงก่อนเวลานัด 5 นาที<br>• เลยเวลานัด 10 นาที จะถูกย้ายไปท้ายคิว<br>• ติดต่อผู้ดูแลทาง Instagram</div></section>
+<div class="p"><h3>วิธีการจอง</h3>1) เลือกจำนวนรูปและสถานที่ 2) เลือกเวลาว่าง (ล็อกให้ 5 นาที) 3) กรอกข้อมูลแล้วยืนยัน 4) จดรหัสการจองและรหัสแก้ไข<br><br><b>กติกา</b><br>• มาถึงก่อนเวลานัด 5 นาที<br>• เลยเวลานัด 10 นาที จะถูกย้ายไปท้ายคิว<br>• ติดต่อผู้ดูแลทาง Instagram: <b id="igc">-</b></div></section>
 <section id="price" hidden><div class="p"><h3>ราคา</h3><table>
 <tr><td>1 ใบ</td><td>59 บาท</td></tr><tr><td>2 ใบ</td><td>109 บาท</td></tr><tr><td>3 ใบ</td><td>159 บาท</td></tr><tr><td>4 ใบ</td><td>236 บาท</td></tr><tr><td>5 ใบ</td><td>295 บาท</td></tr>
 <tr><td>6–9 ใบ</td><td>ใบละ 50 บาท</td></tr><tr><td>10 ใบขึ้นไป</td><td>ใบละ 49 บาท</td></tr></table></div></section>
@@ -57,8 +57,8 @@ const ER={TAKEN:"เวลานี้ถูกจองไปแล้วค่
 let hold=null,cdt;
 function go(v){["home","price","gallery","book","my"].forEach(x=>$(x).hidden=x!=v);document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.v==v));}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.v));
-async function rel(){if(hold){await db.rpc("my_cancel",{p_code:hold.code,p_pin:hold.pin});hold=null;clearInterval(cdt);$("form").hidden=true;}}
-async function status(){const{data}=await db.rpc("public_status");if(!data)return;PS=data;
+async function rel(){if(hold){await db.rpc("release_hold",{p_code:hold.code,p_pin:hold.pin});hold=null;clearInterval(cdt);$("form").hidden=true;}}
+async function status(){const{data}=await db.rpc("public_status");if(!data)return;PS=data;$("igc").textContent=data.ig?"@"+data.ig.replace(/^@/,""):"(ร้านยังไม่ได้ตั้งค่า)";
  $("pn").hidden=!data.paused;$("closed").hidden=data.open;$("step1").hidden=!data.open;
  if(!$("loc").options.length)$("loc").innerHTML=data.locations.split(",").map(l=>`<option>${esc(l)}</option>`).join("");}
 async function slots(){const q=+$("qty").value;if(!(q>=1)){$("grid").innerHTML="";$("sum").textContent="";return;}
@@ -74,7 +74,7 @@ $("grid").onclick=async e=>{const t=e.target.dataset.t;if(!t)return;await rel();
 $("ok").onclick=async()=>{if(!hold)return;const{data}=await db.rpc("confirm_booking",{p_code:hold.code,p_pin:hold.pin,p_nick:$("nick").value,p_ig:$("ig").value,p_phone:$("phone").value,p_note:$("note").value});
  if(!data||!data.ok){$("msg").textContent=ER[data?.error]||"เกิดข้อผิดพลาด";return;}
  clearInterval(cdt);$("form").hidden=true;$("step1").hidden=true;$("done").hidden=false;
- $("done").innerHTML=`<h3>จองสำเร็จ ♡</h3>Booking ID<div class="code">${esc(hold.code)}</div>รหัสแก้ไข<div class="code">${esc(hold.pin)}</div><p>กรุณาจด/แคปหน้านี้ไว้ ใช้ที่หน้า MY BOOKING</p>`+payHtml(hold.price,"UNPAID");bindPay(hold.code,hold.pin);hold=null;};
+ $("done").innerHTML=`<h3>จองสำเร็จ ♡</h3>Booking ID<div class="code">${esc(hold.code)}</div>รหัสแก้ไข<div class="code">${esc(hold.pin)}</div><p>กรุณาจด/แคปหน้านี้ไว้ ใช้ที่หน้า MY BOOKING</p><button onclick="go('my');$('mg').click()">ดู / แก้ไข / ยกเลิกการจอง</button>`+payHtml(hold.price,"UNPAID");bindPay(hold.code,hold.pin);$("mc").value=hold.code;$("mp").value=hold.pin;try{localStorage.setItem("pm_last",JSON.stringify({c:hold.code,p:hold.pin}))}catch(e){}hold=null;};
 $("mg").onclick=async()=>{const{data}=await db.rpc("my_get",{p_code:$("mc").value,p_pin:$("mp").value});
  if(!data){$("mm").textContent="ไม่พบการจอง ตรวจสอบรหัสอีกครั้งค่ะ";$("mv").hidden=true;return;}$("mm").textContent="";
  const lock=["CANCELLED","COMPLETED","IN_PROGRESS"].includes(data.status);
@@ -90,7 +90,7 @@ function payHtml(price,pay){
  const mode=PS.pay_mode=="postpay"?"ชำระหลังถ่ายเสร็จ (ยังไม่ต้องโอนตอนนี้)":"ชำระล่วงหน้า";
  return `<div class="p2"><h3>💳 ชำระเงิน</h3>ยอดที่ต้องจ่าย <b>${price} บาท</b><br>${mode}<br>สถานะ: <b>${esc(pay)}</b>${qr}
  <input id="slip" type="file" accept="image/jpeg,image/png,application/pdf"><button id="sb">อัปโหลดสลิป</button><div class="m" id="sm"></div>
- <small>การอัปโหลดสลิปยังไม่ถือว่าชำระสำเร็จ ต้องรอผู้ดูแลตรวจสอบ</small></div>`;}
+ <small>การอัปโหลดสลิปยังไม่ถือว่าชำระสำเร็จ ต้องรอผู้ดูแลตรวจสอบ<br>ติดต่อร้านทาง Instagram: ${esc(PS.ig||"-")}</small></div>`;}
 function bindPay(code,pin){$("sb").onclick=async()=>{const f=$("slip").files[0];if(!f)return;
  if(f.size>5242880||!["image/jpeg","image/png","application/pdf"].includes(f.type)){$("sm").textContent="รองรับ JPG PNG PDF ไม่เกิน 5MB ค่ะ";return;}
  const ext=f.type=="application/pdf"?"pdf":f.type=="image/png"?"png":"jpg",path=`${code}-${Date.now()}.${ext}`;
@@ -99,5 +99,6 @@ function bindPay(code,pin){$("sb").onclick=async()=>{const f=$("slip").files[0];
 async function gal(){const{data}=await db.from("gallery").select("*").order("created_at");
  $("gal").innerHTML=(data||[]).map(g=>`<div class="pol" data-u="${esc(pub(g.path))}"><img src="${esc(pub(g.path))}" loading="lazy" alt=""><div>♡</div></div>`).join("")||"<p>ยังไม่มีรูปตัวอย่างค่ะ</p>";}
 $("gal").onclick=e=>{const d=e.target.closest(".pol");if(d){$("lbi").src=d.dataset.u;$("lb").hidden=false;}};
+try{const L=JSON.parse(localStorage.getItem("pm_last")||"null");if(L){$("mc").value=L.c;$("mp").value=L.p;}}catch(e){}
 status();gal();setInterval(()=>{status();if(!$("book").hidden&&!hold)slots();},5000);
 </script></body></html>
