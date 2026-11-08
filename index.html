@@ -38,7 +38,7 @@ table{width:100%;border-collapse:collapse}td{padding:6px;border-bottom:1px solid
 <section id="book" hidden><div id="closed" class="p" hidden>ขณะนี้ปิดรับจองแล้ว ขอบคุณทุกคนที่ให้ความสนใจนะคะ ♡</div>
 <div id="step1" class="p"><h3>1) เลือกจำนวนรูปและเวลา</h3>
 <input id="qty" type="number" min="1" max="30" placeholder="จำนวนรูป" inputmode="numeric"><select id="loc"></select>
-<div class="m" id="sum"></div><p style="font-size:13px">🟦 ว่าง &nbsp;⬜ ถูกจองแล้ว &nbsp;🟨 มีคนกำลังจอง</p><div id="grid"></div><div class="m" id="gm"></div></div>
+<div class="m" id="sum"></div><button id="fx" class="x">👪 จองคิวผู้ปกครอง (ไม่ระบุเวลา · เรียกตามลำดับการจอง)</button><p style="font-size:13px">🟦 ว่าง &nbsp;⬜ ถูกจองแล้ว &nbsp;🟨 มีคนกำลังจอง</p><div id="grid"></div><div class="m" id="gm"></div></div>
 <div id="form" class="p" hidden><h3>2) กรอกข้อมูล</h3><div class="m" id="cd"></div>
 <input id="nick" placeholder="ชื่อเล่น *"><input id="ig" placeholder="Instagram *"><input id="phone" placeholder="เบอร์โทร (ถ้าต้องการ)" inputmode="tel">
 <textarea id="note" rows="2" placeholder="หมายเหตุ"></textarea><button id="ok">ยืนยันการจอง</button><div class="m" id="msg"></div></div>
@@ -64,21 +64,21 @@ async function status(){const{data}=await db.rpc("public_status");if(!data)retur
 async function slots(){const q=+$("qty").value;if(!(q>=1)){$("grid").innerHTML="";$("sum").textContent="";return;}
  $("sum").textContent="ราคา "+P(q)+" บาท";const{data,error}=await db.rpc("slots_for",{q});$("gm").textContent=error?"โหลดเวลาไม่สำเร็จ: "+error.message+" | เว็บเรียกไปที่: "+SB+" | v3":(data&&data.length?"":"ยังไม่มีเวลาที่เปิดให้เลือก (ผู้ดูแลต้องตั้งวัน/เวลาที่หน้า Admin)");
  $("grid").innerHTML=(data||[]).map(s=>`<button class="${s.state}" data-t="${s.t}" ${s.state!="free"?"disabled":""}>${tm(s.t)}</button>`).join("");}
-$("qty").oninput=async()=>{await rel();slots();};
-$("grid").onclick=async e=>{const t=e.target.dataset.t;if(!t)return;await rel();
+$("qty").oninput=async()=>{flexMode=false;$("form").hidden=true;await rel();slots();};
+$("grid").onclick=async e=>{const t=e.target.dataset.t;if(!t)return;flexMode=false;await rel();
  const{data}=await db.rpc("hold_slot",{p_qty:+$("qty").value,p_start:t,p_loc:$("loc").value});
  if(!data||!data.ok){alert(ER[data?.error]||"เกิดข้อผิดพลาด");slots();return;}
  hold=data;$("form").hidden=false;$("msg").textContent="";
  clearInterval(cdt);cdt=setInterval(()=>{const s=Math.round((new Date(hold.until)-Date.now())/1000);
   if(s<=0){clearInterval(cdt);hold=null;$("form").hidden=true;slots();return;}$("cd").textContent=`ล็อกคิวให้ ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")} นาที · ${P(+$("qty").value)} บาท`;},500);};
-$("ok").onclick=async()=>{if(!hold)return;const{data}=await db.rpc("confirm_booking",{p_code:hold.code,p_pin:hold.pin,p_nick:$("nick").value,p_ig:$("ig").value,p_phone:$("phone").value,p_note:$("note").value});
+$("ok").onclick=async()=>{if(flexMode){await doFlex();return;}if(!hold)return;const{data}=await db.rpc("confirm_booking",{p_code:hold.code,p_pin:hold.pin,p_nick:$("nick").value,p_ig:$("ig").value,p_phone:$("phone").value,p_note:$("note").value});
  if(!data||!data.ok){$("msg").textContent=ER[data?.error]||"เกิดข้อผิดพลาด";return;}
  clearInterval(cdt);$("form").hidden=true;$("step1").hidden=true;$("done").hidden=false;
  $("done").innerHTML=`<h3>จองสำเร็จ ♡</h3>Booking ID<div class="code">${esc(hold.code)}</div>รหัสแก้ไข<div class="code">${esc(hold.pin)}</div><p>กรุณาจด/แคปหน้านี้ไว้ ใช้ที่หน้า MY BOOKING</p><button onclick="go('my');$('mg').click()">ดู / แก้ไข / ยกเลิกการจอง</button>`+payHtml(hold.price,"UNPAID");bindPay(hold.code,hold.pin);$("mc").value=hold.code;$("mp").value=hold.pin;if(ME)db.rpc("claim_booking",{p_code:hold.code,p_pin:hold.pin}).then(acct);try{localStorage.setItem("pm_last",JSON.stringify({c:hold.code,p:hold.pin}))}catch(e){}hold=null;};
 $("mg").onclick=async()=>{const{data}=await db.rpc("my_get",{p_code:$("mc").value,p_pin:$("mp").value});
  if(!data){$("mm").textContent="ไม่พบการจอง ตรวจสอบรหัสอีกครั้งค่ะ";$("mv").hidden=true;return;}$("mm").textContent="";if(ME)db.rpc("claim_booking",{p_code:$("mc").value,p_pin:$("mp").value}).then(acct);
  const lock=["CANCELLED","COMPLETED","IN_PROGRESS"].includes(data.status);
- $("mv").hidden=false;$("mv").innerHTML=`<h3>${esc(data.status)}</h3>เวลา ${tm(data.start_at)}–${tm(data.end_at)} · ${esc(data.location)}<br>${data.qty} ภาพ · ${data.price} บาท · ชำระเงิน: ${esc(data.pay)}
+ $("mv").hidden=false;$("mv").innerHTML=`<h3>${esc(data.status)}</h3>${data.start_at?"เวลา "+tm(data.start_at)+"–"+tm(data.end_at):"👪 คิวผู้ปกครอง ลำดับที่ "+data.pos+" (รอเรียก)"} · ${esc(data.location)}<br>${data.qty} ภาพ · ${data.price} บาท · ชำระเงิน: ${esc(data.pay)}
  <input id="en" value="${esc(data.nick)}"><input id="ei" value="${esc(data.ig)}"><input id="ep" value="${esc(data.phone)}"><textarea id="eo" rows="2">${esc(data.note)}</textarea>
  ${lock?"":`<button id="es">บันทึกการแก้ไข</button><button id="ec" class="x">CANCEL BOOKING</button>`}<div class="m" id="em"></div><small>ต้องการเปลี่ยนเวลาหรือจำนวนภาพ: ยกเลิกแล้วจองใหม่ หรือติดต่อผู้ดูแล</small>`+(data.status=="CANCELLED"?"":payHtml(data.price,data.pay));if(data.status!="CANCELLED")bindPay($("mc").value,$("mp").value);
  if(lock)return;
@@ -100,13 +100,21 @@ async function gal(){const{data}=await db.from("gallery").select("*").order("cre
  $("gal").innerHTML=(data||[]).map(g=>`<div class="pol" data-u="${esc(pub(g.path))}"><img src="${esc(pub(g.path))}" loading="lazy" alt=""><div>♡</div></div>`).join("")||"<p>ยังไม่มีรูปตัวอย่างค่ะ</p>";}
 $("gal").onclick=e=>{const d=e.target.closest(".pol");if(d){$("lbi").src=d.dataset.u;$("lb").hidden=false;}};
 try{const L=JSON.parse(localStorage.getItem("pm_last")||"null");if(L){$("mc").value=L.c;$("mp").value=L.p;}}catch(e){}
+let flexMode=false;
+$("fx").onclick=async()=>{const q=+$("qty").value;if(!(q>=1)){alert("กรอกจำนวนรูปก่อนค่ะ");return;}await rel();flexMode=true;$("form").hidden=false;$("msg").textContent="";
+ $("cd").textContent=`👪 คิวผู้ปกครอง (ไม่ระบุเวลา) · ${P(q)} บาท · เรียกตามลำดับการจอง`;};
+async function doFlex(){const{data}=await db.rpc("flex_book",{p_qty:+$("qty").value,p_loc:$("loc").value,p_nick:$("nick").value,p_ig:$("ig").value,p_phone:$("phone").value,p_note:$("note").value});
+ if(!data||!data.ok){$("msg").textContent=ER[data?.error]||"เกิดข้อผิดพลาด";return;}
+ flexMode=false;$("form").hidden=true;$("step1").hidden=true;$("done").hidden=false;
+ $("done").innerHTML=`<h3>จองคิวผู้ปกครองสำเร็จ ♡</h3>Booking ID<div class="code">${esc(data.code)}</div>รหัสแก้ไข<div class="code">${esc(data.pin)}</div><p>ไม่ระบุเวลา ผู้ดูแลจะเรียกตามลำดับการจอง กรุณารออยู่ใกล้จุดถ่ายนะคะ</p><button onclick="go('my');$('mg').click()">ดู / แก้ไข / ยกเลิกการจอง</button>`+payHtml(data.price,"UNPAID");bindPay(data.code,data.pin);
+ $("mc").value=data.code;$("mp").value=data.pin;if(ME)db.rpc("claim_booking",{p_code:data.code,p_pin:data.pin}).then(acct);try{localStorage.setItem("pm_last",JSON.stringify({c:data.code,p:data.pin}))}catch(e){}}
 let ME=null;
 async function acct(){
  const{data}=await db.auth.getSession();ME=data.session?data.session.user:null;
  if(!ME){$("acct").innerHTML=`<h3>👤 บัญชีของฉัน</h3><input id="ae" type="email" placeholder="อีเมล"><input id="ap" type="password" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)"><button id="al">เข้าสู่ระบบ</button><button id="as" class="x">สมัครบัญชีใหม่</button><div class="m" id="am"></div><small>ไม่อยากสมัคร? ใช้ Booking ID + รหัสแก้ไขด้านล่างได้เหมือนเดิม</small>`;
   $("al").onclick=()=>auth("signInWithPassword");$("as").onclick=()=>auth("signUp");return;}
  const{data:L}=await db.rpc("my_list");
- $("acct").innerHTML=`<h3>👤 ${esc(ME.email)}</h3><button id="ao" class="x">ออกจากระบบ</button><b>การจองของฉัน</b>`+((L||[]).map(b=>`<div class="p2" data-c="${esc(b.code)}" data-p="${esc(b.pin)}" style="cursor:pointer">${tm(b.start_at)}–${tm(b.end_at)} · ${b.qty} ภาพ · ${b.price} ฿<br><small>${esc(b.status)} · ${esc(b.pay)} · ${esc(b.code)} (กดเพื่อดู/แก้ไข/ยกเลิก)</small></div>`).join("")||"<p>ยังไม่มีการจอง</p>");
+ $("acct").innerHTML=`<h3>👤 ${esc(ME.email)}</h3><button id="ao" class="x">ออกจากระบบ</button><b>การจองของฉัน</b>`+((L||[]).map(b=>`<div class="p2" data-c="${esc(b.code)}" data-p="${esc(b.pin)}" style="cursor:pointer">${b.start_at?tm(b.start_at)+"–"+tm(b.end_at):"👪 คิวผู้ปกครอง #"+b.pos} · ${b.qty} ภาพ · ${b.price} ฿<br><small>${esc(b.status)} · ${esc(b.pay)} · ${esc(b.code)} (กดเพื่อดู/แก้ไข/ยกเลิก)</small></div>`).join("")||"<p>ยังไม่มีการจอง</p>");
  $("ao").onclick=async()=>{await db.auth.signOut();acct();};}
 async function auth(fn){const{data,error}=await db.auth[fn]({email:$("ae").value.trim(),password:$("ap").value});
  if(error){$("am").textContent="ไม่สำเร็จ: "+error.message;return;}

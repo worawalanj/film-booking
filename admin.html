@@ -29,6 +29,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{border-bottom:1px
 <input id="qf" type="file" accept="image/jpeg,image/png,image/webp"> <button id="qs">บันทึก</button> <span id="qm"></span><br><small>เลือกไฟล์ QR เฉพาะตอนต้องการเปลี่ยน</small></details>
 <details class="s2"><summary><b>Gallery (รูปตัวอย่าง)</b></summary><input id="gf" type="file" accept="image/jpeg,image/png,image/webp" multiple> <button id="gu">อัปโหลด</button><div id="ga"></div></details>
 <h3>Queue Timeline</h3><label><input id="shc" type="checkbox"> แสดงคิวที่ยกเลิกแล้ว</label><div class="s2"><div id="tl"></div></div>
+<h3>👪 คิวผู้ปกครอง (เรียงตามลำดับจอง)</h3><div class="s2"><div id="fl"></div></div>
 <h3>ประวัติการเปลี่ยนแปลง</h3><div class="s2"><table id="lt"></table></div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
@@ -44,7 +45,7 @@ async function load(){await db.rpc("admin_tick");
  const ok=rows.filter(r=>r.status!="CANCELLED"),T=(a,v)=>`<div class="c">${a}<b>${esc(v)}</b></div>`;
  $("st").innerHTML=T("การจอง",ok.length)+T("จำนวนภาพ",ok.reduce((a,r)=>a+r.qty,0))+T("ยอดเงินรวม",ok.reduce((a,r)=>a+r.price,0)+" ฿")+T("ถ่ายเสร็จ",ok.filter(r=>r.status=="COMPLETED").length)+T("สถานะคิว",s?.paused?"หยุดชั่วคราว":"ปกติ");
  const now=Date.now();
- $("tl").innerHTML=rows.filter(r=>$("shc").checked||r.status!="CANCELLED").map(r=>{
+ $("tl").innerHTML=rows.filter(r=>r.start_at&&($("shc").checked||r.status!="CANCELLED")).map(r=>{
   const al=r.status=="WAITING"&&now>new Date(r.start_at).getTime()+300000?'<div class="al">⚠️ เลยเวลานัด 5 นาที</div>':"";
   const B=(a,l,c)=>`<button class="s ${c||""}" data-c="${esc(r.code)}" data-a="${a}">${l}</button>`;
   const P=(p,c)=>`<button class="s ${c||""}" data-c="${esc(r.code)}" data-p="${p}">${p}</button>`;
@@ -54,18 +55,24 @@ async function load(){await db.rpc("admin_tick");
   สถานะ: <strong>${esc(r.status)}</strong> · จ่าย: <strong>${esc(r.pay)}</strong>${al}<div>
   ${done?"":B("IN_PROGRESS","เริ่ม")+B("COMPLETED","เสร็จ")+B("SKIPPED","ข้าม")+B("END","ไปท้ายคิว")+B("RESCH","เลื่อน")+B("CANCELLED","❌ ยกเลิกคิวนี้","x")}</div><div>
   ${r.slip_path?`<button class="s x" data-s="${esc(r.slip_path)}">ดูสลิป</button>`:""}${P("PAID")}${P("UNPAID","x")}${P("REFUNDED","x")}</div></div>`;}).join("")||"<p>ยังไม่มีคิว</p>";
+ const fx=rows.filter(r=>!r.start_at&&r.status!="CANCELLED").sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+ $("fl").innerHTML=fx.map((r,i)=>`<div class="c" style="margin:8px 0"><strong style="font-size:17px">ลำดับ ${i+1} · ${esc(r.nick)}</strong><br>IG: ${esc(r.ig)} · ${r.qty} ภาพ · ${r.price} ฿ · ${esc(r.location)}<br><small>${esc(r.code)} ${esc(r.phone)} ${esc(r.note)}</small><br>จ่าย: <strong>${esc(r.pay)}</strong>
+ <div><button class="s" data-c="${esc(r.code)}" data-a="FLEXAUTO">เรียกเข้าช่วงว่างถัดไป</button><button class="s" data-c="${esc(r.code)}" data-a="FLEXAT">จัดเวลาเอง</button><button class="s x" data-c="${esc(r.code)}" data-a="CANCELLED">❌ ยกเลิก</button></div>
+ <div>${r.slip_path?`<button class="s x" data-s="${esc(r.slip_path)}">ดูสลิป</button>`:""}<button class="s" data-c="${esc(r.code)}" data-p="PAID">PAID</button></div></div>`).join("")||"<p>ไม่มีคิวผู้ปกครองที่รอ</p>";
  const{data:l}=await db.from("queue_logs").select("*").order("at",{ascending:false}).limit(60);
  $("lt").innerHTML="<tr><th>เวลา</th><th>รหัส</th><th>การกระทำ</th><th>เดิม→ใหม่</th><th>เหตุผล</th><th>ผู้ทำ</th></tr>"+(l||[]).map(r=>`<tr><td>${new Date(r.at).toLocaleString("th-TH",{timeZone:"Asia/Bangkok"})}</td><td>${esc(r.code)}</td><td>${esc(r.action)}</td><td>${r.old_start?f(r.old_start):""}${r.new_start?" → "+f(r.new_start):""}</td><td>${esc(r.reason)}</td><td>${esc(r.actor)}</td></tr>`).join("");}
 $("tl").onclick=async e=>{const D=e.target.dataset;
  if(D.s){const w=window.open("","_blank");const{data}=await db.storage.from("slips").createSignedUrl(D.s,300);if(data)w.location=data.signedUrl;else w.close();return;}
  if(D.p){await db.rpc("admin_set_pay",{p_code:D.c,p_pay:D.p,p_reason:""});load();return;}
- const c=D.c,a=D.a;if(!c)return;let r="";
+ const c=D.c,a=D.a;if(!c)return;
+ if(a=="FLEXAUTO"||a=="FLEXAT"){let st=null;if(a=="FLEXAT"){const h=prompt("เวลาเริ่ม เช่น 19:30");if(!h)return;st=new Date(`${cfg.day}T${h}:00+07:00`).toISOString();}
+  const d=(await db.rpc("admin_schedule_flex",{p_code:c,p_start:st,p_reason:"เรียกคิวผู้ปกครอง"})).data;if(d&&!d.ok)alert({NO_SLOT:"ไม่มีช่วงว่างพอ",OVERLAP:"เวลาทับกับคิวอื่น"}[d.error]||"ไม่สำเร็จ");load();return;}let r="";
  if(!["IN_PROGRESS","COMPLETED"].includes(a)){r=prompt("เหตุผล");if(r===null)return;}
  let d;if(a=="RESCH"){const h=prompt("เวลาเริ่มใหม่ เช่น 19:30");if(!h)return;d=(await db.rpc("admin_reschedule",{p_code:c,p_start:new Date(`${cfg.day}T${h}:00+07:00`).toISOString(),p_reason:r})).data;}
  else if(a=="END")d=(await db.rpc("admin_reschedule",{p_code:c,p_start:null,p_reason:r})).data;
  else d=(await db.rpc("admin_set_status",{p_code:c,p_status:a,p_reason:r})).data;
  if(d&&!d.ok)alert({OVERLAP:"เวลาทับกับคิวอื่น",OUT_OF_RANGE:"เกินเวลาสิ้นสุดที่เปิดรับ"}[d.error]||"ทำรายการไม่สำเร็จ");load();};
-$("shc").onchange=load;$("pa").onclick=async()=>{const r=prompt("เหตุผล");if(r===null)return;await db.rpc("admin_pause",{p:!cfg.paused,p_reason:r});load();};
+$("shc").onchange=load;$("fl").onclick=$("tl").onclick;$("pa").onclick=async()=>{const r=prompt("เหตุผล");if(r===null)return;await db.rpc("admin_pause",{p:!cfg.paused,p_reason:r});load();};
 $("sv").onclick=async()=>{await db.rpc("admin_save_settings",{p_day:$("sd").value,p_start:$("ss").value,p_end:$("se").value,p_per:+$("sp").value,p_prep:+$("sr").value,p_gap:+$("sg").value,p_locs:$("sl").value,p_open:$("so").checked});alert("บันทึกแล้ว");load();};
 $("csv").onclick=()=>{const h=["code","start_at","end_at","nick","qty","price","ig","phone","location","note","status","pay"];
  const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';const t="\ufeff"+h.join(",")+"\n"+rows.map(r=>h.map(k=>q(r[k])).join(",")).join("\n");
