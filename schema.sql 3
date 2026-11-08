@@ -1,0 +1,117 @@
+-- วางทั้งไฟล์ใน Supabase > SQL Editor แล้วกด Run (ลบตารางระบบฟิล์มเดิมทิ้งก่อน)
+drop table if exists queue_logs,bookings,order_items,orders,stock_logs,settings cascade;
+drop function if exists public_status(),create_order(text,text,int),update_order(text,text,int),admin_stats(),admin_cancel(text),admin_set_open(boolean,boolean);
+
+create table settings(id int primary key default 1 check(id=1),day date default '2026-12-01',start_t time default '18:00',end_t time default '22:00',
+ per_photo int default 2,prep int default 2,gap int default 0,min_per_photo int default 1,hold_min int default 5,
+ paused boolean default false,open boolean default true,locations text default 'จุดที่ 1,จุดที่ 2');
+insert into settings(id) values(1);
+create table bookings(id uuid primary key default gen_random_uuid(),code text unique,pin text,nick text,ig text,phone text,
+ qty int check(qty>0),price int,location text,note text,start_at timestamptz,end_at timestamptz,status text default 'HOLD',
+ pay text default 'UNPAID',hold_until timestamptz,created_at timestamptz default now(),updated_at timestamptz default now(),cancelled_at timestamptz);
+create table queue_logs(id bigserial primary key,code text,action text,old_start timestamptz,new_start timestamptz,reason text,actor text,at timestamptz default now());
+alter table settings enable row level security; alter table bookings enable row level security; alter table queue_logs enable row level security;
+create policy a1 on settings for select to authenticated using(true);
+create policy a2 on bookings for select to authenticated using(true);
+create policy a3 on queue_logs for select to authenticated using(true);
+
+create or replace function price(q int) returns int language sql immutable as $$
+ select case q when 1 then 59 when 2 then 109 when 3 then 159 when 4 then 236 when 5 then 295 else q*case when q>=10 then 49 else 50 end end $$;
+create or replace function dur(q int) returns int language sql stable as $$ select prep+per_photo*q+gap from settings where id=1 $$;
+create or replace function chk() returns void language plpgsql as $$ begin if auth.uid() is null then raise exception 'unauthorized'; end if; end $$;
+create or replace function lg(c text,a text,o timestamptz,n timestamptz,r text) returns void language sql security definer set search_path=public as $$
+ insert into queue_logs(code,action,old_start,new_start,reason,actor) values(c,a,o,n,r,coalesce(auth.jwt()->>'email','customer')) $$;
+create or replace function busy(a timestamptz,b timestamptz,skip uuid default null) returns text language sql stable security definer set search_path=public as $$
+ select case when exists(select 1 from bookings x where x.id is distinct from skip and x.status not in('CANCELLED','HOLD') and tstzrange(x.start_at,x.end_at)&&tstzrange(a,b)) then 'booked'
+ when exists(select 1 from bookings x where x.id is distinct from skip and x.status='HOLD' and x.hold_until>now() and tstzrange(x.start_at,x.end_at)&&tstzrange(a,b)) then 'held' end $$;
+
+create or replace function public_status() returns json language sql security definer set search_path=public as $$
+ select json_build_object('open',open,'paused',paused,'locations',locations,'day',day) from settings where id=1 $$;
+
+create or replace function slots_for(q int) returns table(t timestamptz,state text) language sql security definer set search_path=public as $$
+ with s as(select * from settings where id=1),
+ g as(select generate_series((s.day+s.start_t) at time zone 'Asia/Bangkok',(s.day+s.end_t) at time zone 'Asia/Bangkok'-make_interval(mins=>dur(q)),interval '5 min') t from s)
+ select g.t,case when g.t<now() then 'booked' else coalesce(busy(g.t,g.t+make_interval(mins=>dur(q))),'free') end from g order by 1 $$;
+
+create or replace function hold_slot(p_qty int,p_start timestamptz,p_loc text) returns json language plpgsql security definer set search_path=public as $$
+declare s settings; e timestamptz; c text; k text;
+begin
+ select * into s from settings where id=1 for update;   -- ล็อก ให้จองได้ทีละคน
+ if not s.open then return json_build_object('ok',false,'error','CLOSED'); end if;
+ e:=p_start+make_interval(mins=>dur(p_qty));
+ if p_qty<1 or p_qty>30 or p_start<now() or p_start<(s.day+s.start_t) at time zone 'Asia/Bangkok' or e>(s.day+s.end_t) at time zone 'Asia/Bangkok'
+  or not (p_loc=any(string_to_array(s.locations,','))) then return json_build_object('ok',false,'error','INVALID'); end if;
+ if busy(p_start,e) is not null then return json_build_object('ok',false,'error','TAKEN'); end if;
+ c:=upper(substr(md5(random()::text||clock_timestamp()::text),1,8)); k:=lpad(floor(random()*1000000)::int::text,6,'0');
+ insert into bookings(code,pin,qty,price,location,start_at,end_at,hold_until) values(c,k,p_qty,price(p_qty),p_loc,p_start,e,now()+make_interval(mins=>s.hold_min));
+ return json_build_object('ok',true,'code',c,'pin',k,'until',now()+make_interval(mins=>s.hold_min),'price',price(p_qty));
+end $$;
+
+create or replace function confirm_booking(p_code text,p_pin text,p_nick text,p_ig text,p_phone text,p_note text) returns json language plpgsql security definer set search_path=public as $$
+declare b bookings;
+begin
+ perform 1 from settings where id=1 for update;
+ select * into b from bookings where code=p_code and pin=p_pin and status='HOLD';
+ if not found or b.hold_until<=now() then return json_build_object('ok',false,'error','EXPIRED'); end if;
+ if length(trim(p_nick))<1 or length(trim(p_ig))<1 then return json_build_object('ok',false,'error','INVALID'); end if;
+ update bookings set status='UPCOMING',nick=trim(p_nick),ig=trim(p_ig),phone=trim(p_phone),note=p_note,hold_until=null,updated_at=now() where id=b.id;
+ perform lg(b.code,'BOOK',null,b.start_at,null);
+ return json_build_object('ok',true);
+end $$;
+
+create or replace function my_get(p_code text,p_pin text) returns json language sql security definer set search_path=public as $$
+ select coalesce((select row_to_json(x) from(select code,nick,ig,phone,qty,price,location,note,start_at,end_at,status,pay from bookings where code=upper(trim(p_code)) and pin=trim(p_pin)) x),'null'::json) $$;
+
+create or replace function my_update(p_code text,p_pin text,p_nick text,p_ig text,p_phone text,p_note text) returns json language plpgsql security definer set search_path=public as $$
+begin
+ update bookings set nick=trim(p_nick),ig=trim(p_ig),phone=trim(p_phone),note=p_note,updated_at=now()
+ where code=upper(trim(p_code)) and pin=trim(p_pin) and status not in('CANCELLED','COMPLETED','IN_PROGRESS');
+ if not found then return json_build_object('ok',false); end if;
+ perform lg(upper(trim(p_code)),'EDIT',null,null,null); return json_build_object('ok',true);
+end $$;
+
+create or replace function my_cancel(p_code text,p_pin text) returns json language plpgsql security definer set search_path=public as $$
+declare b bookings;
+begin
+ select * into b from bookings where code=upper(trim(p_code)) and pin=trim(p_pin) and status not in('CANCELLED','COMPLETED','IN_PROGRESS');
+ if not found then return json_build_object('ok',false); end if;
+ update bookings set status='CANCELLED',cancelled_at=now(),updated_at=now() where id=b.id;   -- ไม่ลบแถว
+ if b.status<>'HOLD' then perform lg(b.code,'CANCEL',b.start_at,null,'customer'); end if;
+ return json_build_object('ok',true);
+end $$;
+
+create or replace function admin_tick() returns void language plpgsql security definer set search_path=public as $$
+begin
+ perform chk();
+ if (select paused from settings where id=1) then return; end if;
+ update bookings set status='WAITING',updated_at=now() where status in('UPCOMING','RESCHEDULED') and start_at<=now();
+ if not exists(select 1 from bookings where status='IN_PROGRESS') then
+  update bookings set status='LATE',updated_at=now() where status='WAITING' and start_at<=now()-interval '10 minutes'; end if;
+end $$;
+
+create or replace function admin_set_status(p_code text,p_status text,p_reason text) returns json language plpgsql security definer set search_path=public as $$
+begin
+ perform chk();
+ if p_status not in('UPCOMING','WAITING','IN_PROGRESS','COMPLETED','LATE','SKIPPED','CANCELLED') then return json_build_object('ok',false); end if;
+ update bookings set status=p_status,updated_at=now(),cancelled_at=case when p_status='CANCELLED' then now() else cancelled_at end where code=p_code;
+ perform lg(p_code,p_status,null,null,p_reason); return json_build_object('ok',true);
+end $$;
+
+create or replace function admin_reschedule(p_code text,p_start timestamptz,p_reason text) returns json language plpgsql security definer set search_path=public as $$
+declare s settings; b bookings; n timestamptz; e timestamptz;
+begin
+ perform chk(); select * into s from settings where id=1 for update;
+ select * into b from bookings where code=p_code;
+ n:=coalesce(p_start,(select greatest(max(end_at),now()) from bookings where status not in('CANCELLED') and id<>b.id));
+ e:=n+(b.end_at-b.start_at);
+ if e>(s.day+s.end_t) at time zone 'Asia/Bangkok' then return json_build_object('ok',false,'error','OUT_OF_RANGE'); end if;
+ if busy(n,e,b.id) is not null then return json_build_object('ok',false,'error','OVERLAP'); end if;
+ update bookings set start_at=n,end_at=e,status='RESCHEDULED',updated_at=now() where id=b.id;
+ perform lg(b.code,'RESCHEDULE',b.start_at,n,p_reason); return json_build_object('ok',true);
+end $$;
+
+create or replace function admin_pause(p boolean,p_reason text) returns void language plpgsql security definer set search_path=public as $$
+begin perform chk(); update settings set paused=p where id=1; perform lg(null,case when p then 'PAUSE' else 'RESUME' end,null,null,p_reason); end $$;
+
+create or replace function admin_save_settings(p_day date,p_start time,p_end time,p_per int,p_prep int,p_gap int,p_locs text,p_open boolean) returns void language plpgsql security definer set search_path=public as $$
+begin perform chk(); update settings set day=p_day,start_t=p_start,end_t=p_end,per_photo=p_per,prep=p_prep,gap=p_gap,locations=p_locs,open=p_open where id=1; end $$;
